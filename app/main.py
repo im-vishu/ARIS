@@ -1,7 +1,9 @@
+from app.scheduler import start_scheduler
 from rich import print
 from app.agent import handle_user_message, execute_confirmed_command
 
 def main():
+    start_scheduler()
     print("[bold cyan]ARIs Phase 1.1[/bold cyan] - hardened tool-calling")
     print("Type 'exit' to quit.\n")
 

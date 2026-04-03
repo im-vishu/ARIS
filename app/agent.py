@@ -11,6 +11,12 @@ from app.tools.reminder_tool import create_reminder
 from app.validation import is_valid_url, is_valid_email, is_valid_iso_datetime
 
 
+from app.tools.whatsapp_tool import send_whatsapp
+from app.tools.calendar_tool import create_calendar_event
+from app.validation import is_valid_phone_e164, is_valid_iso_datetime
+from app.config import settings
+
+
 def extract_text_and_tool_call(response):
     text_parts = []
     tool_call = None
