@@ -1,6 +1,7 @@
 from urllib.parse import urlparse
 from email.utils import parseaddr
 from datetime import datetime
+import re
 
 def is_valid_url(url: str) -> bool:
     try:
@@ -18,3 +19,6 @@ def is_valid_iso_datetime(dt: str) -> bool:
         return True
     except Exception:
         return False
+
+def is_valid_phone_e164(phone: str) -> bool:
+    return bool(re.fullmatch(r"\+\d{10,15}", phone))
