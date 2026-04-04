@@ -130,3 +130,5 @@ Local Executive Assistant.
 - Phase 4.1 Milestone 13/25: feat(middleware): add Sunset-Date headers for deprecated API paths
 
 - Phase 4.1 Milestone 14/25: docs: initialize docs/DEPRECATION_POLICY.md for version governance
+
+- Phase 4.1 Milestone 15/25: docs: document /v1 breaking changes and migration path for clients
