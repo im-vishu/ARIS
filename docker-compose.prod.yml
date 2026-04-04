@@ -1,0 +1,15 @@
+services:
+  aris-api:
+    env_file:
+      - .env.prod
+    ports:
+      - "8002:8000"
+    restart: always
+
+  aris-worker:
+    env_file:
+      - .env.prod
+    restart: always
+
+  redis:
+    restart: always

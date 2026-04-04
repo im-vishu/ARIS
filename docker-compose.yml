@@ -1,24 +1,29 @@
-version: "3.9"
 services:
   aris-api:
     build: .
     container_name: aris-api
+    command: uvicorn app.api:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
     env_file:
-      - .env
-    volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
+      - .env.dev
+    depends_on:
+      - redis
     restart: unless-stopped
 
   aris-worker:
     build: .
     container_name: aris-worker
-    command: ["python", "-m", "app.worker"]
+    command: python -m app.worker
     env_file:
-      - .env
-    volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
+      - .env.dev
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: aris-redis
+    ports:
+      - "6379:6379"
     restart: unless-stopped
