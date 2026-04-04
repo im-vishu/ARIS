@@ -64,3 +64,5 @@ Local Executive Assistant.
 - Build Step: chore(env): configure local SQLite development environment in .env.dev
 
 - Build Step: chore(env): define PostgreSQL connection string for staging environment
+
+- Build Step: build(migrations): initialize Alembic for database version control
