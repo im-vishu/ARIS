@@ -134,3 +134,5 @@ Local Executive Assistant.
 - Phase 4.1 Milestone 15/25: docs: document /v1 breaking changes and migration path for clients
 
 - Phase 4.1 Milestone 16/25: test(auth): update test_auth.py to target /v1/auth endpoints
+
+- Phase 4.1 Milestone 17/25: test(chat): update test_chat.py to target /v1/chat endpoints
