@@ -124,3 +124,5 @@ Local Executive Assistant.
 - Phase 4.1 Milestone 10/25: refactor(health): migrate /ready to /v1/ready for dependency monitoring
 
 - Phase 4.1 Milestone 11/25: refactor(metrics): migrate /metrics to /v1/metrics for Prometheus
+
+- Phase 4.1 Milestone 12/25: feat(middleware): add Deprecation-Header logic for legacy endpoints
