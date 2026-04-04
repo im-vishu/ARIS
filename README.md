@@ -44,3 +44,5 @@ Local Executive Assistant.
 - System refinement pass 27
 
 - Build Step: chore(config): add DATABASE_URL and persistence settings for Phase 2.7
+
+- Build Step: feat(db): initialize SQLAlchemy engine and sessionmaker in app/db.py
