@@ -48,3 +48,5 @@ Local Executive Assistant.
 - Build Step: feat(db): initialize SQLAlchemy engine and sessionmaker in app/db.py
 
 - Build Step: feat(db): implement get_db dependency for FastAPI session management
+
+- Build Step: feat(models): define ChatMessage SQLAlchemy model for history persistence
