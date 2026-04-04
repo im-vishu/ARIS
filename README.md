@@ -142,3 +142,5 @@ Local Executive Assistant.
 - Phase 4.1 Milestone 19/25: test(history): update test_chat_history_auth.py for v1 isolation
 
 - Phase 4.1 Milestone 20/25: test(health): update test_health.py to validate v1 status codes
+
+- Phase 4.1 Milestone 21/25: test(metrics): update test_metrics.py for v1 observability checks
