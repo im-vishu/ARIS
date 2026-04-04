@@ -10,9 +10,9 @@ from openai import (
     APIError,
 )
 
+from app.logging_config import setup_logging
 from app.logging_middleware import install_request_logging
-
-
+from app.errors import install_error_handlers
 from app.agent import handle_user_message
 from app.security import verify_token
 from app.security_ext import (
@@ -22,13 +22,13 @@ from app.security_ext import (
     create_access_token,
 )
 from app.rate_limit_redis import check_rate_limit
-from app.errors import install_error_handlers
+
+setup_logging("INFO")
+logger = logging.getLogger("aris.api")
 
 app = FastAPI()
 install_error_handlers(app)
 install_request_logging(app)
-
-logger = logging.getLogger("aris.api")
 
 
 class ChatIn(BaseModel):
