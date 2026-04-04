@@ -100,3 +100,5 @@ Local Executive Assistant.
 - Build Milestone 8: test: add tests/test_chat_history_auth.py for multi-user isolation
 
 - Build Milestone 9: test: verify JWT claim integrity and role-based access control (RBAC)
+
+- Build Milestone 10: docs: finalize Phase 2.8 manifest with User-Isolation and Identity specs
