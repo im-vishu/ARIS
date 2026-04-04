@@ -66,3 +66,5 @@ Local Executive Assistant.
 - Build Step: chore(env): define PostgreSQL connection string for staging environment
 
 - Build Step: build(migrations): initialize Alembic for database version control
+
+- Build Step: config(migrations): bridge Alembic env.py with app.models metadata
