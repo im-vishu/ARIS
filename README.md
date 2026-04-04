@@ -46,3 +46,5 @@ Local Executive Assistant.
 - Build Step: chore(config): add DATABASE_URL and persistence settings for Phase 2.7
 
 - Build Step: feat(db): initialize SQLAlchemy engine and sessionmaker in app/db.py
+
+- Build Step: feat(db): implement get_db dependency for FastAPI session management
