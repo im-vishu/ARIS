@@ -1,23 +1,26 @@
 $ErrorActionPreference = "Stop"
 
-Write-Host "1) health"
-$h = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8000/health"
-if ($h.status -ne "ok") { throw "Health failed" }
+$base = "http://127.0.0.1:8000"
 
-Write-Host "2) ready"
-$r = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8000/ready"
-if ($r.status -ne "ready") { throw "Ready failed" }
+Write-Host "1) v1 health"
+$h = Invoke-RestMethod -Method Get -Uri "$base/v1/health"
+if ($h.data.status -ne "ok") { throw "Health failed" }
 
-Write-Host "3) auth token"
-$tok = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/auth/token" -ContentType "application/json" -Body '{"username":"smoke-user","role":"user"}'
-if (-not $tok.access_token) { throw "Token missing" }
+Write-Host "2) v1 ready"
+$r = Invoke-RestMethod -Method Get -Uri "$base/v1/ready"
+if ($r.data.status -ne "ready") { throw "Ready failed" }
 
-Write-Host "4) chat"
-$chat = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/chat" -Headers @{Authorization="Bearer $($tok.access_token)"} -ContentType "application/json" -Body '{"message":"smoke ping"}'
-if (-not $chat.message_id) { throw "Chat failed" }
+Write-Host "3) v1 auth token"
+$tokRes = Invoke-RestMethod -Method Post -Uri "$base/v1/auth/token" -ContentType "application/json" -Body '{"username":"smoke-user","role":"user"}'
+$access = $tokRes.data.access_token
+if (-not $access) { throw "Token missing" }
 
-Write-Host "5) history"
-$hist = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8000/chat/history?limit=5" -Headers @{Authorization="Bearer $($tok.access_token)"}
-if (-not $hist) { throw "History failed" }
+Write-Host "4) v1 chat"
+$chat = Invoke-RestMethod -Method Post -Uri "$base/v1/chat" -Headers @{Authorization="Bearer $access"} -ContentType "application/json" -Body '{"message":"smoke ping"}'
+if (-not $chat.data.message_id) { throw "Chat failed" }
+
+Write-Host "5) v1 history"
+$hist = Invoke-RestMethod -Method Get -Uri "$base/v1/chat/history?limit=5" -Headers @{Authorization="Bearer $access"}
+if (-not $hist.data) { throw "History failed" }
 
 Write-Host "SMOKE TEST PASSED"

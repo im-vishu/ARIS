@@ -9,7 +9,7 @@ on:
         type: choice
         options: [staging, prod]
       image_tag:
-        description: "Image tag to deploy (example: v3.3.0)"
+        description: "Image tag to deploy (example: v5.0.0)"
         required: true
         type: string
   push:
@@ -45,22 +45,25 @@ jobs:
           echo "Deploy environment: ${{ steps.params.outputs.env }}"
           echo "Image tag: ${{ steps.params.outputs.tag }}"
 
-      # Replace this with your actual deployment target steps (SSH/Kubernetes/App Service/etc.)
+      # Replace with your real deployment commands
       - name: Simulated deploy step
         run: |
           echo "Pulling image ghcr.io/${{ github.repository }}:${{ steps.params.outputs.tag }}"
           echo "Applying deployment manifests..."
           echo "Deployment done."
 
-      - name: Post-deploy health check
+      - name: Post-deploy health check (/v1/ready)
         env:
           HEALTHCHECK_URL: ${{ secrets.HEALTHCHECK_URL }}
         run: |
           if [ -z "$HEALTHCHECK_URL" ]; then
             echo "HEALTHCHECK_URL secret is missing"; exit 1
           fi
+
+          BASE_URL="${HEALTHCHECK_URL%/}"
+
           for i in {1..20}; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTHCHECK_URL/ready")
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/v1/ready")
             if [ "$code" = "200" ]; then
               echo "Ready check passed"
               exit 0
@@ -68,5 +71,6 @@ jobs:
             echo "Attempt $i/20 not ready yet (HTTP $code), retrying..."
             sleep 5
           done
+
           echo "Deployment health check failed"
           exit 1
