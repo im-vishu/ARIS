@@ -136,3 +136,5 @@ Local Executive Assistant.
 - Phase 4.1 Milestone 16/25: test(auth): update test_auth.py to target /v1/auth endpoints
 
 - Phase 4.1 Milestone 17/25: test(chat): update test_chat.py to target /v1/chat endpoints
+
+- Phase 4.1 Milestone 18/25: test(history): update test_chat_history.py to target /v1/chat/history
