@@ -118,3 +118,5 @@ Local Executive Assistant.
 - Phase 4.1 Milestone 7/25: refactor(chat): migrate /chat to /v1/chat endpoint with v1 schema
 
 - Phase 4.1 Milestone 8/25: refactor(chat): migrate /chat/history to /v1/chat/history endpoint
+
+- Phase 4.1 Milestone 9/25: refactor(health): migrate /health to /v1/health with metadata support
