@@ -80,3 +80,5 @@ Local Executive Assistant.
 - Build Step: chore: update requirements.txt with SQLAlchemy and alembic dependencies
 
 - Build Step: refactor: optimize database query ordering for chat history retrieval
+
+- Build Step: docs: update README with Phase 2.7 Database Schema and migration guide
