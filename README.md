@@ -148,3 +148,5 @@ Local Executive Assistant.
 - Phase 4.1 Milestone 22/25: test(rotation): update test_token_rotation.py for v1 token flows
 
 - Phase 4.1 Milestone 23/25: refactor(api): implement X-Request-ID propagation in all v1 responses
+
+- Phase 4.1 Milestone 24/25: chore(api): finalize app/api.py with legacy sunset strategy
