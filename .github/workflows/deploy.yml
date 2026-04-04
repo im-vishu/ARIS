@@ -1,69 +1,40 @@
 name: Deploy
 
 on:
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: "Target environment"
-        required: true
-        type: choice
-        options: [staging, prod]
-      image_tag:
-        description: "Image tag to deploy (example: v5.0.0)"
-        required: true
-        type: string
   push:
-    tags:
-      - "v*"
-
-concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: false
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'prod' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Resolve deploy params
-        id: params
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "env=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-            echo "tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
-          else
-            echo "env=prod" >> $GITHUB_OUTPUT
-            echo "tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-          fi
+      # Optional: add your real deploy step(s) here (Render/Railway/Fly/etc.)
+      # - name: Deploy to Render
+      #   run: |
+      #     echo "Deploy step here"
 
-      - name: Show plan
-        run: |
-          echo "Deploy environment: ${{ steps.params.outputs.env }}"
-          echo "Image tag: ${{ steps.params.outputs.tag }}"
-
-      # Replace with your real deployment commands
-      - name: Simulated deploy step
-        run: |
-          echo "Pulling image ghcr.io/${{ github.repository }}:${{ steps.params.outputs.tag }}"
-          echo "Applying deployment manifests..."
-          echo "Deployment done."
-
-      - name: Post-deploy health check (/v1/ready)
+      - name: Post-deploy healthcheck
         env:
           HEALTHCHECK_URL: ${{ secrets.HEALTHCHECK_URL }}
+          RENDER_EXTERNAL_URL: ${{ secrets.RENDER_EXTERNAL_URL }}
         run: |
-          if [ -z "$HEALTHCHECK_URL" ]; then
-            echo "HEALTHCHECK_URL secret is missing"; exit 1
+          BASE_URL="${HEALTHCHECK_URL:-$RENDER_EXTERNAL_URL}"
+
+          if [ -z "$BASE_URL" ]; then
+            echo "No HEALTHCHECK_URL/RENDER_EXTERNAL_URL set; skipping healthcheck for this environment."
+            exit 0
           fi
 
-          BASE_URL="${HEALTHCHECK_URL%/}"
+          BASE_URL="${BASE_URL%/}"
+          echo "Using BASE_URL=$BASE_URL"
 
           for i in {1..20}; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/v1/ready")
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/v1/ready" || true)
             if [ "$code" = "200" ]; then
               echo "Ready check passed"
               exit 0
