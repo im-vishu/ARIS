@@ -74,3 +74,5 @@ Local Executive Assistant.
 - Build Step: build(migrations): apply 'upgrade head' to synchronize database schema
 
 - Build Step: test: implement integration test for chat message persistence
+
+- Build Step: test: verify /chat/history endpoint returns valid JSON sequences
