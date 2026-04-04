@@ -110,3 +110,5 @@ Local Executive Assistant.
 - Phase 4.1 Milestone 3/25: feat(api): implement standardized 'error' object for failed requests
 
 - Phase 4.1 Milestone 4/25: refactor(security): migrate /auth/token to /v1/auth/token endpoint
+
+- Phase 4.1 Milestone 5/25: refactor(security): migrate /auth/refresh to /v1/auth/refresh endpoint
