@@ -5,6 +5,9 @@ from app.agent import handle_user_message
 from app.logging_config import setup_logging
 from app.security import create_access_token, enforce_rate_limit, verify_token
 
+from app.errors import install_error_handlers
+install_error_handlers(app)
+
 import logging
 
 setup_logging()
