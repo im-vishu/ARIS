@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
@@ -23,6 +24,7 @@ jobs:
         image: redis:7
         ports:
           - 6379:6379
+
       postgres:
         image: postgres:16
         env:
@@ -48,29 +50,10 @@ jobs:
       RATE_LIMIT_PER_MINUTE: 1000
       OPENAI_API_KEY: sk-test-placeholder
       REDIS_URL: redis://localhost:6379/0
-      DATABASE_URL: postgresql+psycopg2://aris:aris@localhost:5432/aris
+      DATABASE_URL: postgresql+psycopg://aris:aris@localhost:5432/aris
       CORS_ORIGINS: http://localhost:3000
       ALLOWED_HOSTS: localhost,127.0.0.1
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run migrations
-        run: alembic upgrade head
-
-      - name: Lint
-        run: ruff check .
-
-      - name: Test with coverage gate
-        run: pytest -q --maxfail=1 --disable-warnings --cov=app --cov-report=term-missing --cov-fail-under=85
+        uses: actions/checkout@
