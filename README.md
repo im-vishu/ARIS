@@ -1,154 +1,238 @@
-﻿# ARIS Phase 1
-Local Executive Assistant.
+﻿# ARIS — Production-Ready FastAPI Backend
 
-- System refinement pass 7
+ARIS is a scalable backend service built with FastAPI, PostgreSQL, Redis, and GitHub Actions CI/CD.  
+It is designed for reliability, clean architecture, secure auth, and deployment readiness.
 
-- System refinement pass 8
+---
 
-- System refinement pass 9
+## ✨ Highlights
 
-- System refinement pass 10
+- ⚡ High-performance API with **FastAPI**
+- 🔐 **JWT Authentication** (access + refresh token flow)
+- 🗄️ **PostgreSQL + SQLAlchemy + Alembic** for robust data management
+- 🚀 **Redis** for caching and performance support
+- ✅ **Automated CI** with linting, migrations, tests, and coverage gate
+- 🛡️ **Secret scanning** with Gitleaks
+- 📦 Deployment workflow with post-deploy readiness checks
+- 🩺 Health endpoints for monitoring (`/v1/health`, `/v1/ready`)
 
-- System refinement pass 11
+---
 
-- System refinement pass 12
+## 🧱 Tech Stack
 
-- System refinement pass 13
+### Core Backend
+- **Python 3.12**
+- **FastAPI** — async-ready, OpenAPI-native web framework
+- **Pydantic** — data validation and settings management
+- **Uvicorn** — ASGI server for local/prod runtime
 
-- System refinement pass 14
+### Data Layer
+- **PostgreSQL 16** — primary relational database
+- **SQLAlchemy 2.x** — ORM / database abstraction
+- **Alembic** — schema versioning and migrations
+- **psycopg 3** (`postgresql+psycopg://`) — PostgreSQL driver
+
+### Performance & Infra
+- **Redis 7** — cache / throttling / ephemeral state
+- **Docker-based service containers in CI** (Postgres + Redis)
 
-- System refinement pass 15
+### Quality & Testing
+- **Pytest** — unit/integration testing
+- **pytest-cov** — coverage reporting with quality threshold
+- **Ruff** — fast linting + code quality checks
 
-- System refinement pass 16
+### DevSecOps / CI-CD
+- **GitHub Actions** — CI/CD pipelines
+- **Gitleaks** — secrets detection
+- Readiness-based deploy validation with retry strategy
 
-- System refinement pass 17
+---
 
-- System refinement pass 18
+## 📁 Project Structure
 
-- System refinement pass 19
+```text
+ARIS/
+├─ app/                          # Main application package
+├─ alembic/                      # Migration scripts
+├─ alembic.ini
+├─ requirements.txt
+├─ .github/
+│  └─ workflows/
+│     ├─ ci.yml                  # Lint + migrate + test + coverage + secret scan
+│     └─ deploy.yml              # Deployment + health checks
+└─ README.md
+```
 
-- System refinement pass 20
+---
 
-- System refinement pass 21
+## ⚙️ Environment Configuration
 
-- System refinement pass 22
+Create `.env` (or configure platform secrets):
 
-- System refinement pass 23
+```env
+APP_ENV=dev
+LOG_LEVEL=INFO
 
-- System refinement pass 24
+JWT_SECRET=change-this-to-a-long-random-secret
+JWT_ALG=HS256
+ACCESS_TOKEN_EXPIRE_MIN=30
+REFRESH_TOKEN_EXPIRE_MIN=10080
 
-- System refinement pass 25
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_PER_MINUTE=60
 
-- System refinement pass 26
+OPENAI_API_KEY=your_openai_key_if_used
 
-- System refinement pass 27
+REDIS_URL=redis://localhost:6379/0
+DATABASE_URL=postgresql+psycopg://aris:aris@localhost:5432/aris
 
-- Build Step: chore(config): add DATABASE_URL and persistence settings for Phase 2.7
+CORS_ORIGINS=http://localhost:3000
+ALLOWED_HOSTS=localhost,127.0.0.1
+```
 
-- Build Step: feat(db): initialize SQLAlchemy engine and sessionmaker in app/db.py
+> Important: Use **psycopg v3 URL format**: `postgresql+psycopg://...`
 
-- Build Step: feat(db): implement get_db dependency for FastAPI session management
+---
 
-- Build Step: feat(models): define ChatMessage SQLAlchemy model for history persistence
+## 🚀 Local Setup
 
-- Build Step: feat(schemas): implement ChatHistoryOut Pydantic model for API responses
+### 1) Clone repository
+```bash
+git clone https://github.com/im-vishu/ARIS.git
+cd ARIS
+```
 
-- Build Step: refactor(api): integrate Database Session dependency into /chat endpoint
+### 2) Create virtual environment
 
-- Build Step: feat(api): implement logic to persist user messages and AI replies to DB
+**Windows (PowerShell)**
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
 
-- Build Step: feat(api): implement /chat/history endpoint with pagination support
+**Linux/macOS**
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
 
-- Build Step: chore(api): enable automatic table creation via Base.metadata.create_all
+### 3) Install dependencies
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
 
-- Build Step: chore(env): configure local SQLite development environment in .env.dev
+### 4) Run DB migrations
+```bash
+alembic upgrade head
+```
 
-- Build Step: chore(env): define PostgreSQL connection string for staging environment
+### 5) Start server
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-- Build Step: build(migrations): initialize Alembic for database version control
+---
 
-- Build Step: config(migrations): bridge Alembic env.py with app.models metadata
+## 📚 API Documentation
 
-- Build Step: feat(migrations): generate initial chat_messages table revision
+When server is running:
 
-- Build Step: build(migrations): apply 'upgrade head' to synchronize database schema
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
 
-- Build Step: test: implement integration test for chat message persistence
+---
 
-- Build Step: test: verify /chat/history endpoint returns valid JSON sequences
+## ✅ Quality Commands
 
-- Build Step: chore: update requirements.txt with SQLAlchemy and alembic dependencies
+```bash
+# Lint
+ruff check .
 
-- Build Step: refactor: optimize database query ordering for chat history retrieval
+# Tests
+pytest -q --maxfail=1 --disable-warnings
 
-- Build Step: docs: update README with Phase 2.7 Database Schema and migration guide
+# Coverage gate
+pytest -q --maxfail=1 --disable-warnings --cov=app --cov-report=term-missing --cov-fail-under=85
+```
 
-- Build Milestone 1: feat(security): implement JWT claim extraction in app/security_ext.py
+---
 
-- Build Milestone 2: refactor(security): transition to 'sub' based identity mapping for users
+## 🔄 CI/CD Overview
 
-- Build Milestone 3: feat(api): integrate JWT claim decoding into the /chat endpoint
+### CI (`ci.yml`)
+On `push` + `pull_request`:
+1. Secret scan (Gitleaks)
+2. Test job with Redis + Postgres services
+3. Dependencies install
+4. Alembic migration check
+5. Ruff lint
+6. Pytest + coverage threshold
 
-- Build Milestone 4: refactor(api): replace hardcoded user identity with authenticated JWT claims
+### Deploy (`deploy.yml`)
+- Trigger: push to `main` or manual dispatch
+- Executes deployment step(s)
+- Runs post-deploy readiness check:
+  - `${HEALTHCHECK_URL}/v1/ready`
+  - fallback to `${RENDER_EXTERNAL_URL}` if configured
+- Retries before marking failure
 
-- Build Milestone 5: feat(api): implement user-isolated chat history retrieval logic
+---
 
-- Build Milestone 6: security(api): restrict /chat/history access to authenticated Bearer tokens
+## 🔐 Required GitHub Secrets
 
-- Build Milestone 7: feat(api): implement admin-level override for global history visibility
+Set in **Settings → Secrets and variables → Actions**:
 
-- Build Milestone 8: test: add tests/test_chat_history_auth.py for multi-user isolation
+- `HEALTHCHECK_URL` (e.g., `https://your-api-domain.com`)
+- `RENDER_EXTERNAL_URL` (optional fallback)
+- Any provider-specific deploy secrets
 
-- Build Milestone 9: test: verify JWT claim integrity and role-based access control (RBAC)
+---
 
-- Build Milestone 10: docs: finalize Phase 2.8 manifest with User-Isolation and Identity specs
+## 🩺 Health Checks
 
-- Phase 4.1 Milestone 1/25: feat(api): initialize /v1 namespace for core API routes
+- `GET /v1/health` → liveness probe
+- `GET /v1/ready` → readiness probe (for deploy verification)
 
-- Phase 4.1 Milestone 2/25: feat(api): implement unified 'data' envelope for successful responses
+---
 
-- Phase 4.1 Milestone 3/25: feat(api): implement standardized 'error' object for failed requests
+## 🏷️ Release Flow
 
-- Phase 4.1 Milestone 4/25: refactor(security): migrate /auth/token to /v1/auth/token endpoint
+```bash
+git checkout main
+git pull origin main
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
 
-- Phase 4.1 Milestone 5/25: refactor(security): migrate /auth/refresh to /v1/auth/refresh endpoint
+If tag exists, increment version (`vX.Y.(Z+1)`).
 
-- Phase 4.1 Milestone 6/25: refactor(security): migrate /auth/logout to /v1/auth/logout endpoint
+---
 
-- Phase 4.1 Milestone 7/25: refactor(chat): migrate /chat to /v1/chat endpoint with v1 schema
+## 🧯 Troubleshooting
 
-- Phase 4.1 Milestone 8/25: refactor(chat): migrate /chat/history to /v1/chat/history endpoint
+### `HEALTHCHECK_URL secret is missing`
+Add `HEALTHCHECK_URL` in repository GitHub Actions secrets.
 
-- Phase 4.1 Milestone 9/25: refactor(health): migrate /health to /v1/health with metadata support
+### `ModuleNotFoundError: psycopg2`
+Use psycopg v3 setup:
+- Dependency: `psycopg[binary]`
+- URL: `postgresql+psycopg://...`
 
-- Phase 4.1 Milestone 10/25: refactor(health): migrate /ready to /v1/ready for dependency monitoring
+### PowerShell script errors for `for ... do`
+Those are bash commands. Use PowerShell syntax instead.
 
-- Phase 4.1 Milestone 11/25: refactor(metrics): migrate /metrics to /v1/metrics for Prometheus
+---
 
-- Phase 4.1 Milestone 12/25: feat(middleware): add Deprecation-Header logic for legacy endpoints
+## 🤝 Contributing
 
-- Phase 4.1 Milestone 13/25: feat(middleware): add Sunset-Date headers for deprecated API paths
+1. Fork / create branch
+2. Commit focused changes
+3. Open PR
+4. Ensure all CI checks pass
 
-- Phase 4.1 Milestone 14/25: docs: initialize docs/DEPRECATION_POLICY.md for version governance
+---
 
-- Phase 4.1 Milestone 15/25: docs: document /v1 breaking changes and migration path for clients
+## 📄 License
 
-- Phase 4.1 Milestone 16/25: test(auth): update test_auth.py to target /v1/auth endpoints
-
-- Phase 4.1 Milestone 17/25: test(chat): update test_chat.py to target /v1/chat endpoints
-
-- Phase 4.1 Milestone 18/25: test(history): update test_chat_history.py to target /v1/chat/history
-
-- Phase 4.1 Milestone 19/25: test(history): update test_chat_history_auth.py for v1 isolation
-
-- Phase 4.1 Milestone 20/25: test(health): update test_health.py to validate v1 status codes
-
-- Phase 4.1 Milestone 21/25: test(metrics): update test_metrics.py for v1 observability checks
-
-- Phase 4.1 Milestone 22/25: test(rotation): update test_token_rotation.py for v1 token flows
-
-- Phase 4.1 Milestone 23/25: refactor(api): implement X-Request-ID propagation in all v1 responses
-
-- Phase 4.1 Milestone 24/25: chore(api): finalize app/api.py with legacy sunset strategy
-
-- Phase 4.1 Milestone 25/25: docs: finalize Phase 4.1 manifest and conclude contract enforcement
+Add `LICENSE` file (MIT/Apache-2.0/etc.) and update this section.
