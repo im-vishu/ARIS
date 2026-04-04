@@ -31,20 +31,6 @@ REQ_COUNTER = Counter("aris_http_requests_total", "Total HTTP requests", ["metho
 ERR_COUNTER = Counter("aris_http_errors_total", "Total HTTP error responses", ["path", "status"])
 LATENCY = Histogram("aris_http_request_duration_seconds", "Request latency", ["method", "path"])
 
-LEGACY_PATHS = {
-    "/health",
-    "/ready",
-    "/metrics-lite",
-    "/metrics",
-    "/auth/token",
-    "/auth/refresh",
-    "/auth/logout",
-    "/chat",
-    "/chat/history",
-}
-SUNSET_DATE = "Wed, 31 Dec 2026 23:59:59 GMT"
-DEPRECATION_LINK = "</docs/DEPRECATION_POLICY.md>; rel=\"deprecation\""
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -55,7 +41,7 @@ async def lifespan(app: FastAPI):
     logger.info("shutdown", extra={"event": "shutdown", "request_id": "", "status_code": 200, "duration_ms": 0})
 
 
-app = FastAPI(title="ARIS API", version="4.1.0", lifespan=lifespan)
+app = FastAPI(title="ARIS API", version="5.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -87,11 +73,6 @@ async def request_context_middleware(request: Request, call_next):
         if status_code >= 400:
             METRICS["errors_total"] += 1
             ERR_COUNTER.labels(path=path, status=str(status_code)).inc()
-
-        if path in LEGACY_PATHS:
-            response.headers["Deprecation"] = "true"
-            response.headers["Sunset"] = SUNSET_DATE
-            response.headers["Link"] = DEPRECATION_LINK
 
         return response
     except Exception:
@@ -132,10 +113,6 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=HTTP_500_INTERNAL_SERVER_ERROR, content=error_payload("internal_error", "internal server error", rid))
 
 
-def _health_payload() -> dict[str, Any]:
-    return {"status": "ok"}
-
-
 def _ready_payload() -> tuple[bool, dict[str, Any]]:
     redis_ok, redis_detail = check_redis()
     openai_ok, openai_detail = check_openai_key()
@@ -147,88 +124,10 @@ def _ready_payload() -> tuple[bool, dict[str, Any]]:
     }
 
 
-def _auth_token_logic(body: dict) -> dict[str, Any]:
-    username = body.get("username")
-    role = body.get("role", "user")
-    if not username:
-        raise HTTPException(status_code=400, detail="username required")
-    return issue_token_pair(username=username, role=role)
-
-
-def _auth_refresh_logic(body: RefreshIn) -> dict[str, Any]:
-    payload = decode_refresh_token(body.refresh_token)
-    jti = payload["jti"]
-    exp = payload["exp"]
-    if is_token_revoked(jti):
-        raise HTTPException(status_code=401, detail="refresh token revoked")
-    if is_refresh_used(jti):
-        raise HTTPException(status_code=401, detail="refresh token already used")
-    mark_refresh_used(jti, exp)
-    revoke_token_jti(jti, exp)
-    return issue_token_pair(username=payload["sub"], role=payload.get("role", "user"))
-
-
-def _auth_logout_logic(body: RefreshIn) -> dict[str, Any]:
-    payload = decode_refresh_token(body.refresh_token)
-    revoke_token_jti(payload["jti"], payload["exp"])
-    return {"ok": True}
-
-
-def _chat_logic(body: dict, authorization: str | None, db: Session) -> dict[str, Any]:
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(status_code=401, detail="missing bearer token")
-    token = authorization.split(" ", 1)[1].strip()
-    if not token:
-        raise HTTPException(status_code=401, detail="invalid bearer token")
-
-    claims = decode_access_token(token)
-    if is_token_revoked(claims["jti"]):
-        raise HTTPException(status_code=401, detail="access token revoked")
-
-    username = claims["sub"]
-    role = claims.get("role", "user")
-    msg = body.get("message", "").strip()
-    if not msg:
-        raise HTTPException(status_code=400, detail="message required")
-
-    if settings.rate_limit_enabled:
-        allowed = check_rate_limit(key=f"chat:{username}", limit=settings.rate_limit_per_minute, window_sec=60)
-        if not allowed:
-            raise HTTPException(status_code=429, detail="rate limit exceeded")
-
-    reply = f"echo: {msg}"
-    row = ChatMessage(username=username, role=role, message=msg, reply=reply)
-    db.add(row)
-    db.commit()
-    db.refresh(row)
-    METRICS["chat_requests_total"] += 1
-    return {"reply": reply, "message_id": row.id}
-
-
-def _history_logic(limit: int, authorization: str | None, db: Session) -> list[dict[str, Any]]:
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(status_code=401, detail="missing bearer token")
-
-    token = authorization.split(" ", 1)[1].strip()
-    claims = decode_access_token(token)
-    if is_token_revoked(claims["jti"]):
-        raise HTTPException(status_code=401, detail="access token revoked")
-
-    username = claims["sub"]
-    role = claims.get("role", "user")
-    limit = max(1, min(limit, 100))
-
-    q = db.query(ChatMessage).order_by(ChatMessage.id.desc())
-    if role != "admin":
-        q = q.filter(ChatMessage.username == username)
-    rows = q.limit(limit).all()
-    return [ChatHistoryOut.model_validate(r).model_dump() for r in rows]
-
-
 @app.get("/v1/health")
 def v1_health(request: Request):
     rid = set_request_id(request.headers.get("x-request-id"))
-    return success(_health_payload(), rid)
+    return success({"status": "ok"}, rid)
 
 
 @app.get("/v1/ready")
@@ -254,76 +153,105 @@ def v1_metrics():
 @app.post("/v1/auth/token")
 def v1_auth_token(body: dict, request: Request):
     rid = set_request_id(request.headers.get("x-request-id"))
-    return success(_auth_token_logic(body), rid)
+    username = body.get("username")
+    role = body.get("role", "user")
+    if not username:
+        raise HTTPException(status_code=400, detail="username required")
+    return success(issue_token_pair(username=username, role=role), rid)
 
 
 @app.post("/v1/auth/refresh")
 def v1_auth_refresh(body: RefreshIn, request: Request):
     rid = set_request_id(request.headers.get("x-request-id"))
-    return success(_auth_refresh_logic(body), rid)
+    payload = decode_refresh_token(body.refresh_token)
+    jti = payload["jti"]
+    exp = payload["exp"]
+
+    if is_token_revoked(jti):
+        raise HTTPException(status_code=401, detail="refresh token revoked")
+    if is_refresh_used(jti):
+        raise HTTPException(status_code=401, detail="refresh token already used")
+
+    mark_refresh_used(jti, exp)
+    revoke_token_jti(jti, exp)
+    return success(issue_token_pair(username=payload["sub"], role=payload.get("role", "user")), rid)
 
 
 @app.post("/v1/auth/logout")
 def v1_auth_logout(body: RefreshIn, request: Request):
     rid = set_request_id(request.headers.get("x-request-id"))
-    return success(_auth_logout_logic(body), rid)
+    payload = decode_refresh_token(body.refresh_token)
+    revoke_token_jti(payload["jti"], payload["exp"])
+    return success({"ok": True}, rid)
 
 
 @app.post("/v1/chat")
-def v1_chat(body: dict, request: Request, authorization: str | None = Header(default=None), db: Session = Depends(get_db)):
+def v1_chat(
+    body: dict,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
     rid = set_request_id(request.headers.get("x-request-id"))
-    return success(_chat_logic(body, authorization, db), rid)
+
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="missing bearer token")
+
+    token = authorization.split(" ", 1)[1].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="invalid bearer token")
+
+    claims = decode_access_token(token)
+    if is_token_revoked(claims["jti"]):
+        raise HTTPException(status_code=401, detail="access token revoked")
+
+    username = claims["sub"]
+    role = claims.get("role", "user")
+
+    msg = body.get("message", "").strip()
+    if not msg:
+        raise HTTPException(status_code=400, detail="message required")
+
+    if settings.rate_limit_enabled:
+        allowed = check_rate_limit(key=f"chat:{username}", limit=settings.rate_limit_per_minute, window_sec=60)
+        if not allowed:
+            raise HTTPException(status_code=429, detail="rate limit exceeded")
+
+    reply = f"echo: {msg}"
+    row = ChatMessage(username=username, role=role, message=msg, reply=reply)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+
+    METRICS["chat_requests_total"] += 1
+    return success({"reply": reply, "message_id": row.id}, rid)
 
 
 @app.get("/v1/chat/history")
-def v1_chat_history(request: Request, limit: int = 20, authorization: str | None = Header(default=None), db: Session = Depends(get_db)):
+def v1_chat_history(
+    request: Request,
+    limit: int = 20,
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
     rid = set_request_id(request.headers.get("x-request-id"))
-    return success(_history_logic(limit, authorization, db), rid)
 
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="missing bearer token")
 
-# Legacy routes (temporary; deprecated)
-@app.get("/health")
-def health_legacy():
-    return _health_payload()
+    token = authorization.split(" ", 1)[1].strip()
+    claims = decode_access_token(token)
+    if is_token_revoked(claims["jti"]):
+        raise HTTPException(status_code=401, detail="access token revoked")
 
+    username = claims["sub"]
+    role = claims.get("role", "user")
 
-@app.get("/ready")
-def ready_legacy():
-    ok, payload = _ready_payload()
-    return JSONResponse(status_code=200 if ok else 503, content=payload)
+    limit = max(1, min(limit, 100))
+    q = db.query(ChatMessage).order_by(ChatMessage.id.desc())
+    if role != "admin":
+        q = q.filter(ChatMessage.username == username)
 
-
-@app.get("/metrics-lite")
-def metrics_lite_legacy():
-    return METRICS
-
-
-@app.get("/metrics")
-def metrics_legacy():
-    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
-
-
-@app.post("/auth/token")
-def auth_token_legacy(body: dict):
-    return _auth_token_logic(body)
-
-
-@app.post("/auth/refresh")
-def auth_refresh_legacy(body: RefreshIn):
-    return _auth_refresh_logic(body)
-
-
-@app.post("/auth/logout")
-def auth_logout_legacy(body: RefreshIn):
-    return _auth_logout_logic(body)
-
-
-@app.post("/chat")
-def chat_legacy(body: dict, authorization: str | None = Header(default=None), db: Session = Depends(get_db)):
-    return _chat_logic(body, authorization, db)
-
-
-@app.get("/chat/history", response_model=list[ChatHistoryOut])
-def chat_history_legacy(limit: int = 20, authorization: str | None = Header(default=None), db: Session = Depends(get_db)):
-    data = _history_logic(limit, authorization, db)
-    return [ChatHistoryOut(**x) for x in data]
+    rows = q.limit(limit).all()
+    data = [ChatHistoryOut.model_validate(r).model_dump() for r in rows]
+    return success(data, rid)
