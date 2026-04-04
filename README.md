@@ -104,3 +104,5 @@ Local Executive Assistant.
 - Build Milestone 10: docs: finalize Phase 2.8 manifest with User-Isolation and Identity specs
 
 - Phase 4.1 Milestone 1/25: feat(api): initialize /v1 namespace for core API routes
+
+- Phase 4.1 Milestone 2/25: feat(api): implement unified 'data' envelope for successful responses
