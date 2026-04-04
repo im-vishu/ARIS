@@ -86,3 +86,5 @@ Local Executive Assistant.
 - Build Milestone 1: feat(security): implement JWT claim extraction in app/security_ext.py
 
 - Build Milestone 2: refactor(security): transition to 'sub' based identity mapping for users
+
+- Build Milestone 3: feat(api): integrate JWT claim decoding into the /chat endpoint
