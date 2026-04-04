@@ -1,14 +1,10 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any
-import os
 
 import jwt
+from fastapi import HTTPException
 from pydantic import BaseModel
 
-JWT_SECRET = os.getenv("JWT_SECRET", "change-me")
-JWT_ALG = os.getenv("JWT_ALG", "HS256")
-ACCESS_TTL_MIN = int(os.getenv("ACCESS_TTL_MIN", "30"))
-REFRESH_TTL_DAYS = int(os.getenv("REFRESH_TTL_DAYS", "7"))
+from app.config import settings
 
 
 class RefreshIn(BaseModel):
@@ -19,46 +15,58 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def create_access_token(username: str, role: str = "user", scopes: list[str] | None = None) -> str:
-    if scopes is None:
-        scopes = ["chat:write"]
+def _encode(payload: dict) -> str:
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_alg)
+
+
+def _decode(token: str) -> dict:
+    try:
+        return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_alg])
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="invalid token")
+
+
+def issue_token_pair(username: str, role: str = "user") -> dict:
     now = _now()
-    payload: dict[str, Any] = {
+    access_exp = now + timedelta(minutes=settings.access_token_expire_min)
+    refresh_exp = now + timedelta(minutes=settings.refresh_token_expire_min)
+
+    access_payload = {
         "sub": username,
         "role": role,
-        "scopes": scopes,
         "type": "access",
         "iat": int(now.timestamp()),
-        "exp": int((now + timedelta(minutes=ACCESS_TTL_MIN)).timestamp()),
+        "exp": int(access_exp.timestamp()),
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
-
-
-def create_refresh_token(username: str, role: str = "user", scopes: list[str] | None = None) -> str:
-    if scopes is None:
-        scopes = ["chat:write"]
-    now = _now()
-    payload: dict[str, Any] = {
+    refresh_payload = {
         "sub": username,
         "role": role,
-        "scopes": scopes,
         "type": "refresh",
         "iat": int(now.timestamp()),
-        "exp": int((now + timedelta(days=REFRESH_TTL_DAYS)).timestamp()),
+        "exp": int(refresh_exp.timestamp()),
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
 
-
-def issue_token_pair(username: str, role: str = "user") -> dict[str, str]:
     return {
-        "access_token": create_access_token(username, role),
-        "refresh_token": create_refresh_token(username, role),
+        "access_token": _encode(access_payload),
+        "refresh_token": _encode(refresh_payload),
         "token_type": "bearer",
+        "expires_in": settings.access_token_expire_min * 60,
     }
 
 
-def decode_refresh_token(token: str) -> dict[str, Any]:
-    payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+def decode_access_token(token: str) -> dict:
+    payload = _decode(token)
+    if payload.get("type") != "access":
+        raise HTTPException(status_code=401, detail="invalid access token")
+    if not payload.get("sub"):
+        raise HTTPException(status_code=401, detail="invalid access token")
+    return payload
+
+
+def decode_refresh_token(token: str) -> dict:
+    payload = _decode(token)
     if payload.get("type") != "refresh":
-        raise ValueError("Invalid token type")
+        raise HTTPException(status_code=401, detail="invalid refresh token")
+    if not payload.get("sub"):
+        raise HTTPException(status_code=401, detail="invalid refresh token")
     return payload

@@ -82,3 +82,5 @@ Local Executive Assistant.
 - Build Step: refactor: optimize database query ordering for chat history retrieval
 
 - Build Step: docs: update README with Phase 2.7 Database Schema and migration guide
+
+- Build Milestone 1: feat(security): implement JWT claim extraction in app/security_ext.py

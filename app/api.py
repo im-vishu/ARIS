@@ -14,10 +14,15 @@ from app.logging_ext import set_request_id, setup_logging
 from app.models import ChatMessage
 from app.rate_limit_redis import check_rate_limit
 from app.schemas import ChatHistoryOut
-from app.security_ext import RefreshIn, decode_refresh_token, issue_token_pair
+from app.security_ext import (
+    RefreshIn,
+    decode_access_token,
+    decode_refresh_token,
+    issue_token_pair,
+)
 
 setup_logging(settings.log_level)
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 # lightweight in-memory metrics
 METRICS = {
@@ -30,10 +35,10 @@ METRICS = {
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Ensure logging is applied after uvicorn boot
+    # Ensure logging is applied after server boot
     setup_logging(settings.log_level)
 
-    # Quick-start table creation (Alembic should be source-of-truth in higher envs)
+    # Quick-start table creation (Alembic remains source-of-truth in higher envs)
     Base.metadata.create_all(bind=engine)
 
     logger.info(
@@ -57,7 +62,7 @@ async def lifespan(app: FastAPI):
     )
 
 
-app = FastAPI(title="ARIS API", version="2.7.0", lifespan=lifespan)
+app = FastAPI(title="ARIS API", version="2.8.0", lifespan=lifespan)
 
 
 @app.middleware("http")
@@ -186,22 +191,25 @@ def chat(
     if not token:
         raise HTTPException(status_code=401, detail="invalid bearer token")
 
+    claims = decode_access_token(token)
+    username = claims.get("sub")
+    role = claims.get("role", "user")
+    if not username:
+        raise HTTPException(status_code=401, detail="invalid access token")
+
     msg = body.get("message", "").strip()
     if not msg:
         raise HTTPException(status_code=400, detail="message required")
 
     if settings.rate_limit_enabled:
         allowed = check_rate_limit(
-            key=f"chat:{token[:12]}",
+            key=f"chat:{username}",
             limit=settings.rate_limit_per_minute,
             window_sec=60,
         )
         if not allowed:
             raise HTTPException(status_code=429, detail="rate limit exceeded")
 
-    # TODO: decode access token and derive username/role from claims
-    username = "vishu"
-    role = "user"
     reply = f"echo: {msg}"
 
     row = ChatMessage(username=username, role=role, message=msg, reply=reply)
@@ -219,6 +227,9 @@ def chat(
             "path": "/chat",
             "status_code": 200,
             "duration_ms": 0,
+            "username": username,
+            "role": role,
+            "message_id": row.id,
         },
     )
 
@@ -226,6 +237,33 @@ def chat(
 
 
 @app.get("/chat/history", response_model=list[ChatHistoryOut])
-def chat_history(limit: int = 20, db: Session = Depends(get_db)):
-    rows = db.query(ChatMessage).order_by(ChatMessage.id.desc()).limit(limit).all()
-    return rows
+def chat_history(
+    limit: int = 20,
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="missing bearer token")
+
+    token = authorization.split(" ", 1)[1].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="invalid bearer token")
+
+    claims = decode_access_token(token)
+    username = claims.get("sub")
+    role = claims.get("role", "user")
+    if not username:
+        raise HTTPException(status_code=401, detail="invalid access token")
+
+    if limit < 1:
+        limit = 1
+    if limit > 100:
+        limit = 100
+
+    q = db.query(ChatMessage).order_by(ChatMessage.id.desc())
+
+    # normal users: own messages only; admin: all messages
+    if role != "admin":
+        q = q.filter(ChatMessage.username == username)
+
+    return q.limit(limit).all()
