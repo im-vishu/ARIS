@@ -60,3 +60,5 @@ Local Executive Assistant.
 - Build Step: feat(api): implement /chat/history endpoint with pagination support
 
 - Build Step: chore(api): enable automatic table creation via Base.metadata.create_all
+
+- Build Step: chore(env): configure local SQLite development environment in .env.dev
