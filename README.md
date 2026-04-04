@@ -96,3 +96,5 @@ Local Executive Assistant.
 - Build Milestone 6: security(api): restrict /chat/history access to authenticated Bearer tokens
 
 - Build Milestone 7: feat(api): implement admin-level override for global history visibility
+
+- Build Milestone 8: test: add tests/test_chat_history_auth.py for multi-user isolation
