@@ -62,3 +62,5 @@ Local Executive Assistant.
 - Build Step: chore(api): enable automatic table creation via Base.metadata.create_all
 
 - Build Step: chore(env): configure local SQLite development environment in .env.dev
+
+- Build Step: chore(env): define PostgreSQL connection string for staging environment
