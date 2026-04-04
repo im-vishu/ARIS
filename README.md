@@ -1,73 +1,99 @@
-﻿# ARIS — Production-Ready FastAPI Backend
+﻿# ARIS — Scalable FastAPI Backend
 
-ARIS is a scalable backend service built with FastAPI, PostgreSQL, Redis, and GitHub Actions CI/CD.  
-It is designed for reliability, clean architecture, secure auth, and deployment readiness.
+ARIS is a production-focused backend built with FastAPI, PostgreSQL, Redis, and GitHub Actions CI/CD.  
+It follows a clean, modular architecture designed for maintainability, testing, and reliable deployments.
 
 ---
 
-## ✨ Highlights
+## ✨ Key Features
 
-- ⚡ High-performance API with **FastAPI**
-- 🔐 **JWT Authentication** (access + refresh token flow)
-- 🗄️ **PostgreSQL + SQLAlchemy + Alembic** for robust data management
-- 🚀 **Redis** for caching and performance support
-- ✅ **Automated CI** with linting, migrations, tests, and coverage gate
-- 🛡️ **Secret scanning** with Gitleaks
-- 📦 Deployment workflow with post-deploy readiness checks
-- 🩺 Health endpoints for monitoring (`/v1/health`, `/v1/ready`)
+- Fast, async-ready REST API with **FastAPI**
+- Secure **JWT authentication** (access + refresh)
+- Structured data layer with **SQLAlchemy + Alembic**
+- **PostgreSQL** for durable storage
+- **Redis** for caching / performance support
+- Automated CI pipeline (lint, migrate, test, coverage)
+- Deployment health verification with readiness checks
+- Secret scanning with Gitleaks
 
 ---
 
 ## 🧱 Tech Stack
 
-### Core Backend
-- **Python 3.12**
-- **FastAPI** — async-ready, OpenAPI-native web framework
-- **Pydantic** — data validation and settings management
-- **Uvicorn** — ASGI server for local/prod runtime
+### Backend
+- Python 3.12
+- FastAPI
+- Pydantic
+- Uvicorn
 
-### Data Layer
-- **PostgreSQL 16** — primary relational database
-- **SQLAlchemy 2.x** — ORM / database abstraction
-- **Alembic** — schema versioning and migrations
-- **psycopg 3** (`postgresql+psycopg://`) — PostgreSQL driver
+### Data
+- PostgreSQL 16
+- SQLAlchemy 2.x
+- Alembic
+- psycopg 3 (`postgresql+psycopg://`)
 
-### Performance & Infra
-- **Redis 7** — cache / throttling / ephemeral state
-- **Docker-based service containers in CI** (Postgres + Redis)
+### Caching & Infra
+- Redis 7
+- Docker service containers in CI
 
-### Quality & Testing
-- **Pytest** — unit/integration testing
-- **pytest-cov** — coverage reporting with quality threshold
-- **Ruff** — fast linting + code quality checks
-
-### DevSecOps / CI-CD
-- **GitHub Actions** — CI/CD pipelines
-- **Gitleaks** — secrets detection
-- Readiness-based deploy validation with retry strategy
+### Quality & DevOps
+- Pytest + pytest-cov
+- Ruff
+- GitHub Actions
+- Gitleaks
 
 ---
 
-## 📁 Project Structure
+## 🗂️ Project Structure (Improved)
 
 ```text
 ARIS/
-├─ app/                          # Main application package
-├─ alembic/                      # Migration scripts
-├─ alembic.ini
-├─ requirements.txt
+├─ app/
+│  ├─ api/                      # Route definitions (versioned endpoints)
+│  │  └─ v1/
+│  │     ├─ endpoints/          # Feature-specific route modules
+│  │     └─ router.py           # v1 API router aggregation
+│  ├─ core/                     # Core settings and security
+│  │  ├─ config.py              # App configuration / env loading
+│  │  ├─ security.py            # JWT, password/hash helpers
+│  │  └─ logging.py             # Logging setup
+│  ├─ db/                       # Database layer
+│  │  ├─ base.py                # SQLAlchemy Base metadata
+│  │  ├─ session.py             # Session/engine management
+│  │  └─ models/                # ORM models
+│  ├─ schemas/                  # Pydantic request/response schemas
+│  ├─ services/                 # Business logic layer
+│  ├─ repositories/             # Data access abstraction
+│  ├─ dependencies/             # Shared FastAPI dependencies
+│  ├─ utils/                    # Utility helpers
+│  └─ main.py                   # FastAPI app entrypoint
+│
+├─ alembic/                     # Migration versions and env
+│  ├─ versions/
+│  └─ env.py
+├─ tests/                       # Unit/integration tests
+│  ├─ unit/
+│  ├─ integration/
+│  └─ conftest.py
+├─ scripts/                     # Local utility scripts (seed/check/run)
 ├─ .github/
 │  └─ workflows/
-│     ├─ ci.yml                  # Lint + migrate + test + coverage + secret scan
-│     └─ deploy.yml              # Deployment + health checks
-└─ README.md
+│     ├─ ci.yml                 # CI: scan + lint + migrate + tests
+│     └─ deploy.yml             # Deploy + readiness healthcheck
+├─ requirements.txt
+├─ alembic.ini
+├─ .env.example                 # Safe env template (no secrets)
+├─ README.md
+└─ LICENSE
 ```
+
+> If some folders are not yet present, this is the recommended target layout as the project grows.
 
 ---
 
-## ⚙️ Environment Configuration
+## ⚙️ Environment Variables
 
-Create `.env` (or configure platform secrets):
+Create `.env` from `.env.example`:
 
 ```env
 APP_ENV=dev
@@ -82,7 +108,6 @@ RATE_LIMIT_ENABLED=true
 RATE_LIMIT_PER_MINUTE=60
 
 OPENAI_API_KEY=your_openai_key_if_used
-
 REDIS_URL=redis://localhost:6379/0
 DATABASE_URL=postgresql+psycopg://aris:aris@localhost:5432/aris
 
@@ -90,149 +115,90 @@ CORS_ORIGINS=http://localhost:3000
 ALLOWED_HOSTS=localhost,127.0.0.1
 ```
 
-> Important: Use **psycopg v3 URL format**: `postgresql+psycopg://...`
-
 ---
 
-## 🚀 Local Setup
+## 🚀 Quick Start
 
-### 1) Clone repository
 ```bash
 git clone https://github.com/im-vishu/ARIS.git
 cd ARIS
-```
-
-### 2) Create virtual environment
-
-**Windows (PowerShell)**
-```powershell
 python -m venv .venv
-.venv\Scripts\Activate.ps1
-```
-
-**Linux/macOS**
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
-
-### 3) Install dependencies
-```bash
+# activate venv (OS-specific)
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-```
-
-### 4) Run DB migrations
-```bash
 alembic upgrade head
-```
-
-### 5) Start server
-```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
----
-
-## 📚 API Documentation
-
-When server is running:
-
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
+API docs:
+- `/docs`
+- `/redoc`
 
 ---
 
-## ✅ Quality Commands
+## ✅ Development Commands
 
 ```bash
-# Lint
 ruff check .
-
-# Tests
 pytest -q --maxfail=1 --disable-warnings
-
-# Coverage gate
 pytest -q --maxfail=1 --disable-warnings --cov=app --cov-report=term-missing --cov-fail-under=85
 ```
 
 ---
 
-## 🔄 CI/CD Overview
+## 🔄 CI/CD
 
-### CI (`ci.yml`)
-On `push` + `pull_request`:
-1. Secret scan (Gitleaks)
-2. Test job with Redis + Postgres services
-3. Dependencies install
-4. Alembic migration check
-5. Ruff lint
-6. Pytest + coverage threshold
+### CI (`.github/workflows/ci.yml`)
+- Secret scan (Gitleaks)
+- Postgres + Redis service containers
+- Migrations (`alembic upgrade head`)
+- Lint (`ruff check .`)
+- Tests with coverage threshold
 
-### Deploy (`deploy.yml`)
-- Trigger: push to `main` or manual dispatch
-- Executes deployment step(s)
-- Runs post-deploy readiness check:
+### Deploy (`.github/workflows/deploy.yml`)
+- Triggered on `main` (or manual dispatch)
+- Runs deployment steps
+- Performs readiness check with retry:
   - `${HEALTHCHECK_URL}/v1/ready`
-  - fallback to `${RENDER_EXTERNAL_URL}` if configured
-- Retries before marking failure
+  - fallback to `${RENDER_EXTERNAL_URL}`
+
+---
+
+## 🩺 Health Endpoints
+
+- `GET /v1/health` → service alive
+- `GET /v1/ready` → dependencies ready
 
 ---
 
 ## 🔐 Required GitHub Secrets
 
-Set in **Settings → Secrets and variables → Actions**:
-
-- `HEALTHCHECK_URL` (e.g., `https://your-api-domain.com`)
+- `HEALTHCHECK_URL` (recommended)
 - `RENDER_EXTERNAL_URL` (optional fallback)
-- Any provider-specific deploy secrets
+- provider-specific deploy secrets
 
 ---
 
-## 🩺 Health Checks
-
-- `GET /v1/health` → liveness probe
-- `GET /v1/ready` → readiness probe (for deploy verification)
-
----
-
-## 🏷️ Release Flow
+## 🏷️ Versioning
 
 ```bash
-git checkout main
-git pull origin main
 git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-If tag exists, increment version (`vX.Y.(Z+1)`).
-
----
-
-## 🧯 Troubleshooting
-
-### `HEALTHCHECK_URL secret is missing`
-Add `HEALTHCHECK_URL` in repository GitHub Actions secrets.
-
-### `ModuleNotFoundError: psycopg2`
-Use psycopg v3 setup:
-- Dependency: `psycopg[binary]`
-- URL: `postgresql+psycopg://...`
-
-### PowerShell script errors for `for ... do`
-Those are bash commands. Use PowerShell syntax instead.
+Use semantic versioning and increment for each release.
 
 ---
 
 ## 🤝 Contributing
 
-1. Fork / create branch
-2. Commit focused changes
-3. Open PR
+1. Create a feature branch
+2. Keep commits small and clear
+3. Open PR to `main`
 4. Ensure all CI checks pass
 
 ---
 
 ## 📄 License
 
-Add `LICENSE` file (MIT/Apache-2.0/etc.) and update this section.
+Choose a license (MIT/Apache-2.0) and include `LICENSE`.
