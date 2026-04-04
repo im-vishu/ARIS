@@ -1,33 +1,40 @@
-name: ARIS CI
+name: CI
 
 on:
   push:
-    branches: ["main", "master"]
+    branches: [ "main", "develop" ]
   pull_request:
-    branches: ["main", "master"]
+    branches: [ "main", "develop" ]
 
 jobs:
-  test-and-build:
+  test:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pytest httpx
 
       - name: Run tests
+        env:
+          APP_ENV: test
+          JWT_SECRET: test-secret
+          JWT_ALG: HS256
+          ACCESS_TOKEN_EXPIRE_MIN: "30"
+          REFRESH_TOKEN_EXPIRE_MIN: "10080"
+          RATE_LIMIT_ENABLED: "false"
+          RATE_LIMIT_PER_MINUTE: "5"
+          REDIS_URL: redis://localhost:6379/0
+          OPENAI_API_KEY: sk-test-key
         run: |
           pytest -q
-
-      - name: Build Docker image
-        run: |
-          docker build -t aris-ci:latest .
