@@ -94,3 +94,5 @@ Local Executive Assistant.
 - Build Milestone 5: feat(api): implement user-isolated chat history retrieval logic
 
 - Build Milestone 6: security(api): restrict /chat/history access to authenticated Bearer tokens
+
+- Build Milestone 7: feat(api): implement admin-level override for global history visibility
