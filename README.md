@@ -58,3 +58,5 @@ Local Executive Assistant.
 - Build Step: feat(api): implement logic to persist user messages and AI replies to DB
 
 - Build Step: feat(api): implement /chat/history endpoint with pagination support
+
+- Build Step: chore(api): enable automatic table creation via Base.metadata.create_all
