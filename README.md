@@ -52,3 +52,5 @@ Local Executive Assistant.
 - Build Step: feat(models): define ChatMessage SQLAlchemy model for history persistence
 
 - Build Step: feat(schemas): implement ChatHistoryOut Pydantic model for API responses
+
+- Build Step: refactor(api): integrate Database Session dependency into /chat endpoint
