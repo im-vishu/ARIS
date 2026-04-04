@@ -116,3 +116,5 @@ Local Executive Assistant.
 - Phase 4.1 Milestone 6/25: refactor(security): migrate /auth/logout to /v1/auth/logout endpoint
 
 - Phase 4.1 Milestone 7/25: refactor(chat): migrate /chat to /v1/chat endpoint with v1 schema
+
+- Phase 4.1 Milestone 8/25: refactor(chat): migrate /chat/history to /v1/chat/history endpoint
