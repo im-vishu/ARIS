@@ -1,8 +1,5 @@
-import json
 import logging
-import os
 import time
-import uuid
 from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException, Request
@@ -10,58 +7,67 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.health import check_openai_key, check_redis
+from app.logging_ext import set_request_id, setup_logging
 from app.rate_limit_redis import check_rate_limit
 from app.security_ext import RefreshIn, decode_refresh_token, issue_token_pair
 
-app = FastAPI(title="ARIS API", version="2.4.2")
+# Initialize structured logging first
+setup_logging(settings.log_level)
+logger = logging.getLogger()  # root logger to ensure handler emission
 
-logger = logging.getLogger("aris.api")
-logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
+app = FastAPI(title="ARIS API", version="2.4.3")
 
 
 @app.middleware("http")
 async def request_context_middleware(request: Request, call_next):
-    request_id = request.headers.get("x-request-id", str(uuid.uuid4()))
+    rid = set_request_id(request.headers.get("x-request-id"))
     start = time.perf_counter()
     try:
         response = await call_next(request)
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        response.headers["x-request-id"] = rid
+
+        logger.info(
+            "request_completed",
+            extra={
+                "event": "http_request",
+                "request_id": rid,
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": duration_ms,
+            },
+        )
+        return response
+
     except Exception:
         duration_ms = round((time.perf_counter() - start) * 1000, 2)
-        log = {
-            "request_id": request_id,
-            "method": request.method,
-            "path": request.url.path,
-            "status_code": 500,
-            "duration_ms": duration_ms,
-        }
-        logger.exception(json.dumps(log))
+        logger.exception(
+            "request_failed",
+            extra={
+                "event": "http_request_error",
+                "request_id": rid,
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": 500,
+                "duration_ms": duration_ms,
+            },
+        )
         raise
-
-    duration_ms = round((time.perf_counter() - start) * 1000, 2)
-    response.headers["x-request-id"] = request_id
-    log = {
-        "request_id": request_id,
-        "method": request.method,
-        "path": request.url.path,
-        "status_code": response.status_code,
-        "duration_ms": duration_ms,
-    }
-    logger.info(json.dumps(log))
-    return response
 
 
 @app.on_event("startup")
 async def startup_checks():
     logger.info(
-        json.dumps(
-            {
-                "event": "startup",
-                "app_env": settings.app_env,
-                "log_level": settings.log_level,
-                "rate_limit_enabled": settings.rate_limit_enabled,
-                "rate_limit_per_minute": settings.rate_limit_per_minute,
-            }
-        )
+        "startup",
+        extra={
+            "event": "startup",
+            "request_id": "",
+            "path": "",
+            "method": "",
+            "status_code": 200,
+            "duration_ms": 0,
+        },
     )
 
 
@@ -84,8 +90,7 @@ def ready():
         },
         "env": settings.app_env,
     }
-    code = 200 if ok else 503
-    return JSONResponse(status_code=code, content=payload)
+    return JSONResponse(status_code=200 if ok else 503, content=payload)
 
 
 @app.post("/auth/token")
@@ -108,7 +113,13 @@ def auth_refresh(body: RefreshIn):
 
 
 @app.post("/chat")
-def chat(body: dict, authorization: str | None = Header(default=None)):
+def chat(
+    body: dict,
+    authorization: str | None = Header(default=None),
+    x_request_id: str | None = Header(default=None),
+):
+    rid = set_request_id(x_request_id)
+
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="missing bearer token")
 
@@ -121,9 +132,24 @@ def chat(body: dict, authorization: str | None = Header(default=None)):
         raise HTTPException(status_code=400, detail="message required")
 
     if settings.rate_limit_enabled:
-        allowed = check_rate_limit(key=f"chat:{token[:12]}", limit=settings.rate_limit_per_minute, window_sec=60)
+        allowed = check_rate_limit(
+            key=f"chat:{token[:12]}",
+            limit=settings.rate_limit_per_minute,
+            window_sec=60,
+        )
         if not allowed:
             raise HTTPException(status_code=429, detail="rate limit exceeded")
 
-    # placeholder response for ops phase
+    logger.info(
+        "chat_received",
+        extra={
+            "event": "chat_request",
+            "request_id": rid,
+            "method": "POST",
+            "path": "/chat",
+            "status_code": 200,
+            "duration_ms": 0,
+        },
+    )
+
     return {"reply": f"echo: {msg}"}
