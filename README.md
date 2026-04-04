@@ -132,3 +132,5 @@ Local Executive Assistant.
 - Phase 4.1 Milestone 14/25: docs: initialize docs/DEPRECATION_POLICY.md for version governance
 
 - Phase 4.1 Milestone 15/25: docs: document /v1 breaking changes and migration path for clients
+
+- Phase 4.1 Milestone 16/25: test(auth): update test_auth.py to target /v1/auth endpoints
