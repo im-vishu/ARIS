@@ -88,3 +88,5 @@ Local Executive Assistant.
 - Build Milestone 2: refactor(security): transition to 'sub' based identity mapping for users
 
 - Build Milestone 3: feat(api): integrate JWT claim decoding into the /chat endpoint
+
+- Build Milestone 4: refactor(api): replace hardcoded user identity with authenticated JWT claims
