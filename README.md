@@ -106,3 +106,5 @@ Local Executive Assistant.
 - Phase 4.1 Milestone 1/25: feat(api): initialize /v1 namespace for core API routes
 
 - Phase 4.1 Milestone 2/25: feat(api): implement unified 'data' envelope for successful responses
+
+- Phase 4.1 Milestone 3/25: feat(api): implement standardized 'error' object for failed requests
