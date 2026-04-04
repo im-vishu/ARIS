@@ -84,3 +84,5 @@ Local Executive Assistant.
 - Build Step: docs: update README with Phase 2.7 Database Schema and migration guide
 
 - Build Milestone 1: feat(security): implement JWT claim extraction in app/security_ext.py
+
+- Build Milestone 2: refactor(security): transition to 'sub' based identity mapping for users
