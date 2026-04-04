@@ -54,3 +54,5 @@ Local Executive Assistant.
 - Build Step: feat(schemas): implement ChatHistoryOut Pydantic model for API responses
 
 - Build Step: refactor(api): integrate Database Session dependency into /chat endpoint
+
+- Build Step: feat(api): implement logic to persist user messages and AI replies to DB
