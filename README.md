@@ -56,3 +56,5 @@ Local Executive Assistant.
 - Build Step: refactor(api): integrate Database Session dependency into /chat endpoint
 
 - Build Step: feat(api): implement logic to persist user messages and AI replies to DB
+
+- Build Step: feat(api): implement /chat/history endpoint with pagination support
