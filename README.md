@@ -78,3 +78,5 @@ Local Executive Assistant.
 - Build Step: test: verify /chat/history endpoint returns valid JSON sequences
 
 - Build Step: chore: update requirements.txt with SQLAlchemy and alembic dependencies
+
+- Build Step: refactor: optimize database query ordering for chat history retrieval
