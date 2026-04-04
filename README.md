@@ -42,3 +42,5 @@ Local Executive Assistant.
 - System refinement pass 26
 
 - System refinement pass 27
+
+- Build Step: chore(config): add DATABASE_URL and persistence settings for Phase 2.7

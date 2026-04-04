@@ -2,60 +2,63 @@
 from dataclasses import dataclass
 
 
-def _require(name: str) -> str:
-    value = os.getenv(name)
-    if not value:
-        raise RuntimeError(f"Missing required environment variable: {name}")
-    return value
+def _to_bool(value: str | None, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _as_bool(value: str) -> bool:
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+def _to_int(value: str | None, default: int) -> int:
+    if value is None or value.strip() == "":
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
 
 
 @dataclass(frozen=True)
 class Settings:
-    app_env: str
-    log_level: str
+    # Core app
+    app_env: str = os.getenv("APP_ENV", "dev")
+    log_level: str = os.getenv("LOG_LEVEL", "INFO").upper()
 
-    openai_api_key: str
+    # Security / JWT
+    jwt_secret: str = os.getenv("JWT_SECRET", "dev-secret-change-this")
+    jwt_alg: str = os.getenv("JWT_ALG", "HS256")
+    access_token_expire_min: int = _to_int(os.getenv("ACCESS_TOKEN_EXPIRE_MIN"), 30)
+    refresh_token_expire_min: int = _to_int(os.getenv("REFRESH_TOKEN_EXPIRE_MIN"), 60 * 24 * 7)
 
-    jwt_secret: str
-    jwt_alg: str
-    access_ttl_min: int
-    refresh_ttl_days: int
+    # Rate limiting
+    rate_limit_enabled: bool = _to_bool(os.getenv("RATE_LIMIT_ENABLED"), True)
+    rate_limit_per_minute: int = _to_int(os.getenv("RATE_LIMIT_PER_MINUTE"), 10)
 
-    redis_url: str
-    rate_limit_enabled: bool
-    rate_limit_per_minute: int
+    # Integrations
+    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
+    # Database
+    database_url: str = os.getenv("DATABASE_URL", "sqlite:///./aris.db")
 
-def load_settings() -> Settings:
-    app_env = os.getenv("APP_ENV", "dev").lower()
-    strict = app_env in {"staging", "prod"}
+    # Optional toggles
+    debug: bool = _to_bool(os.getenv("DEBUG"), False)
 
-    if strict:
-        openai_api_key = _require("OPENAI_API_KEY")
-        jwt_secret = _require("JWT_SECRET")
-    else:
-        openai_api_key = os.getenv("OPENAI_API_KEY", "")
-        jwt_secret = os.getenv("JWT_SECRET", "change-me")
-
-    return Settings(
-        app_env=app_env,
-        log_level=os.getenv("LOG_LEVEL", "INFO"),
-
-        openai_api_key=openai_api_key,
-
-        jwt_secret=jwt_secret,
-        jwt_alg=os.getenv("JWT_ALG", "HS256"),
-        access_ttl_min=int(os.getenv("ACCESS_TTL_MIN", "30")),
-        refresh_ttl_days=int(os.getenv("REFRESH_TTL_DAYS", "7")),
-
-        redis_url=os.getenv("REDIS_URL", "redis://redis:6379/0"),
-        rate_limit_enabled=_as_bool(os.getenv("RATE_LIMIT_ENABLED", "true")),
-        rate_limit_per_minute=int(os.getenv("RATE_LIMIT_PER_MINUTE", "20")),
-    )
+    def masked(self) -> dict:
+        """Safe settings view for logs/debug endpoints."""
+        return {
+            "app_env": self.app_env,
+            "log_level": self.log_level,
+            "jwt_alg": self.jwt_alg,
+            "access_token_expire_min": self.access_token_expire_min,
+            "refresh_token_expire_min": self.refresh_token_expire_min,
+            "rate_limit_enabled": self.rate_limit_enabled,
+            "rate_limit_per_minute": self.rate_limit_per_minute,
+            "redis_url": self.redis_url,
+            "database_url": self.database_url,
+            "openai_api_key_set": bool(self.openai_api_key),
+            "jwt_secret_set": bool(self.jwt_secret),
+            "debug": self.debug,
+        }
 
 
-settings = load_settings()
+settings = Settings()

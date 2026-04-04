@@ -3,19 +3,23 @@ import time
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.db import Base, engine, get_db
 from app.health import check_openai_key, check_redis
 from app.logging_ext import set_request_id, setup_logging
+from app.models import ChatMessage
 from app.rate_limit_redis import check_rate_limit
+from app.schemas import ChatHistoryOut
 from app.security_ext import RefreshIn, decode_refresh_token, issue_token_pair
 
 setup_logging(settings.log_level)
 logger = logging.getLogger()
 
-# very-light in-memory metrics
+# lightweight in-memory metrics
 METRICS = {
     "requests_total": 0,
     "errors_total": 0,
@@ -26,19 +30,34 @@ METRICS = {
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    setup_logging(settings.log_level)  # re-apply after server boot
+    # Ensure logging is applied after uvicorn boot
+    setup_logging(settings.log_level)
+
+    # Quick-start table creation (Alembic should be source-of-truth in higher envs)
+    Base.metadata.create_all(bind=engine)
+
     logger.info(
         "startup",
-        extra={"event": "startup", "request_id": "", "status_code": 200, "duration_ms": 0},
+        extra={
+            "event": "startup",
+            "request_id": "",
+            "status_code": 200,
+            "duration_ms": 0,
+        },
     )
     yield
     logger.info(
         "shutdown",
-        extra={"event": "shutdown", "request_id": "", "status_code": 200, "duration_ms": 0},
+        extra={
+            "event": "shutdown",
+            "request_id": "",
+            "status_code": 200,
+            "duration_ms": 0,
+        },
     )
 
 
-app = FastAPI(title="ARIS API", version="2.6.0", lifespan=lifespan)
+app = FastAPI(title="ARIS API", version="2.7.0", lifespan=lifespan)
 
 
 @app.middleware("http")
@@ -46,11 +65,13 @@ async def request_context_middleware(request: Request, call_next):
     rid = set_request_id(request.headers.get("x-request-id"))
     start = time.perf_counter()
     METRICS["requests_total"] += 1
+
     try:
         response = await call_next(request)
         duration_ms = round((time.perf_counter() - start) * 1000, 2)
         METRICS["last_request_ms"] = duration_ms
         response.headers["x-request-id"] = rid
+
         logger.info(
             "request_completed",
             extra={
@@ -84,6 +105,7 @@ async def request_context_middleware(request: Request, call_next):
 async def unhandled_exception_handler(request: Request, exc: Exception):
     rid = set_request_id(request.headers.get("x-request-id"))
     METRICS["errors_total"] += 1
+
     logger.exception(
         "unhandled_exception",
         extra={
@@ -95,6 +117,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
             "duration_ms": 0,
         },
     )
+
     return JSONResponse(
         status_code=500,
         content={"detail": "internal server error", "x_request_id": rid},
@@ -110,6 +133,7 @@ def health():
 def ready():
     redis_ok, redis_detail = check_redis()
     openai_ok, openai_detail = check_openai_key()
+
     ok = redis_ok and openai_ok
     payload: dict[str, Any] = {
         "status": "ready" if ok else "not_ready",
@@ -147,20 +171,43 @@ def auth_refresh(body: RefreshIn):
 
 
 @app.post("/chat")
-def chat(body: dict, authorization: str | None = Header(default=None), x_request_id: str | None = Header(default=None)):
+def chat(
+    body: dict,
+    authorization: str | None = Header(default=None),
+    x_request_id: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
     rid = set_request_id(x_request_id)
+
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="missing bearer token")
 
     token = authorization.split(" ", 1)[1].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="invalid bearer token")
+
     msg = body.get("message", "").strip()
     if not msg:
         raise HTTPException(status_code=400, detail="message required")
 
     if settings.rate_limit_enabled:
-        allowed = check_rate_limit(key=f"chat:{token[:12]}", limit=settings.rate_limit_per_minute, window_sec=60)
+        allowed = check_rate_limit(
+            key=f"chat:{token[:12]}",
+            limit=settings.rate_limit_per_minute,
+            window_sec=60,
+        )
         if not allowed:
             raise HTTPException(status_code=429, detail="rate limit exceeded")
+
+    # TODO: decode access token and derive username/role from claims
+    username = "vishu"
+    role = "user"
+    reply = f"echo: {msg}"
+
+    row = ChatMessage(username=username, role=role, message=msg, reply=reply)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
 
     METRICS["chat_requests_total"] += 1
     logger.info(
@@ -174,4 +221,11 @@ def chat(body: dict, authorization: str | None = Header(default=None), x_request
             "duration_ms": 0,
         },
     )
-    return {"reply": f"echo: {msg}"}
+
+    return {"reply": reply, "message_id": row.id}
+
+
+@app.get("/chat/history", response_model=list[ChatHistoryOut])
+def chat_history(limit: int = 20, db: Session = Depends(get_db)):
+    rows = db.query(ChatMessage).order_by(ChatMessage.id.desc()).limit(limit).all()
+    return rows
