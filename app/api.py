@@ -10,6 +10,9 @@ from openai import (
     APIError,
 )
 
+from app.logging_middleware import install_request_logging
+
+
 from app.agent import handle_user_message
 from app.security import verify_token
 from app.security_ext import (
@@ -23,6 +26,7 @@ from app.errors import install_error_handlers
 
 app = FastAPI()
 install_error_handlers(app)
+install_request_logging(app)
 
 logger = logging.getLogger("aris.api")
 
