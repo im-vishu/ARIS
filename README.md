@@ -68,3 +68,5 @@ Local Executive Assistant.
 - Build Step: build(migrations): initialize Alembic for database version control
 
 - Build Step: config(migrations): bridge Alembic env.py with app.models metadata
+
+- Build Step: feat(migrations): generate initial chat_messages table revision
