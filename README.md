@@ -128,3 +128,5 @@ Local Executive Assistant.
 - Phase 4.1 Milestone 12/25: feat(middleware): add Deprecation-Header logic for legacy endpoints
 
 - Phase 4.1 Milestone 13/25: feat(middleware): add Sunset-Date headers for deprecated API paths
+
+- Phase 4.1 Milestone 14/25: docs: initialize docs/DEPRECATION_POLICY.md for version governance
