@@ -50,3 +50,5 @@ Local Executive Assistant.
 - Build Step: feat(db): implement get_db dependency for FastAPI session management
 
 - Build Step: feat(models): define ChatMessage SQLAlchemy model for history persistence
+
+- Build Step: feat(schemas): implement ChatHistoryOut Pydantic model for API responses
