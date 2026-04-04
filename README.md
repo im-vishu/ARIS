@@ -90,3 +90,5 @@ Local Executive Assistant.
 - Build Milestone 3: feat(api): integrate JWT claim decoding into the /chat endpoint
 
 - Build Milestone 4: refactor(api): replace hardcoded user identity with authenticated JWT claims
+
+- Build Milestone 5: feat(api): implement user-isolated chat history retrieval logic
