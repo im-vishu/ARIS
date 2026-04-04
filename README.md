@@ -112,3 +112,5 @@ Local Executive Assistant.
 - Phase 4.1 Milestone 4/25: refactor(security): migrate /auth/token to /v1/auth/token endpoint
 
 - Phase 4.1 Milestone 5/25: refactor(security): migrate /auth/refresh to /v1/auth/refresh endpoint
+
+- Phase 4.1 Milestone 6/25: refactor(security): migrate /auth/logout to /v1/auth/logout endpoint
