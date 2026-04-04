@@ -1,43 +1,68 @@
+import json
 import logging
+import os
+import time
+import uuid
+from typing import Any
 
-from fastapi import FastAPI, HTTPException, Depends
-from pydantic import BaseModel
-from openai import (
-    RateLimitError,
-    AuthenticationError,
-    APITimeoutError,
-    APIConnectionError,
-    APIError,
-)
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 
-from app.logging_config import setup_logging
-from app.logging_middleware import install_request_logging
-from app.errors import install_error_handlers
-from app.agent import handle_user_message
-from app.security import verify_token
-from app.security_ext import (
-    issue_token_pair,
-    RefreshIn,
-    decode_refresh_token,
-    create_access_token,
-)
+from app.config import settings
+from app.health import check_openai_key, check_redis
 from app.rate_limit_redis import check_rate_limit
+from app.security_ext import RefreshIn, decode_refresh_token, issue_token_pair
 
-setup_logging("INFO")
+app = FastAPI(title="ARIS API", version="2.4.2")
+
 logger = logging.getLogger("aris.api")
-
-app = FastAPI()
-install_error_handlers(app)
-install_request_logging(app)
+logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
 
 
-class ChatIn(BaseModel):
-    message: str
+@app.middleware("http")
+async def request_context_middleware(request: Request, call_next):
+    request_id = request.headers.get("x-request-id", str(uuid.uuid4()))
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        log = {
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": 500,
+            "duration_ms": duration_ms,
+        }
+        logger.exception(json.dumps(log))
+        raise
+
+    duration_ms = round((time.perf_counter() - start) * 1000, 2)
+    response.headers["x-request-id"] = request_id
+    log = {
+        "request_id": request_id,
+        "method": request.method,
+        "path": request.url.path,
+        "status_code": response.status_code,
+        "duration_ms": duration_ms,
+    }
+    logger.info(json.dumps(log))
+    return response
 
 
-class TokenIn(BaseModel):
-    username: str
-    role: str = "user"
+@app.on_event("startup")
+async def startup_checks():
+    logger.info(
+        json.dumps(
+            {
+                "event": "startup",
+                "app_env": settings.app_env,
+                "log_level": settings.log_level,
+                "rate_limit_enabled": settings.rate_limit_enabled,
+                "rate_limit_per_minute": settings.rate_limit_per_minute,
+            }
+        )
+    )
 
 
 @app.get("/health")
@@ -45,47 +70,60 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/ready")
+def ready():
+    redis_ok, redis_detail = check_redis()
+    openai_ok, openai_detail = check_openai_key()
+
+    ok = redis_ok and openai_ok
+    payload: dict[str, Any] = {
+        "status": "ready" if ok else "not_ready",
+        "checks": {
+            "redis": {"ok": redis_ok, "detail": redis_detail},
+            "openai_key": {"ok": openai_ok, "detail": openai_detail},
+        },
+        "env": settings.app_env,
+    }
+    code = 200 if ok else 503
+    return JSONResponse(status_code=code, content=payload)
+
+
 @app.post("/auth/token")
-def auth_token(payload: TokenIn):
-    return issue_token_pair(payload.username, payload.role)
+def auth_token(body: dict):
+    username = body.get("username")
+    role = body.get("role", "user")
+    if not username:
+        raise HTTPException(status_code=400, detail="username required")
+    return issue_token_pair(username=username, role=role)
 
 
 @app.post("/auth/refresh")
-def auth_refresh(payload: RefreshIn):
-    try:
-        claims = decode_refresh_token(payload.refresh_token)
-        username = claims.get("sub")
-        role = claims.get("role", "user")
-        scopes = claims.get("scopes", ["chat:write"])
-        access_token = create_access_token(username=username, role=role, scopes=scopes)
-        return {"access_token": access_token}
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid or expired refresh token.")
+def auth_refresh(body: RefreshIn):
+    payload = decode_refresh_token(body.refresh_token)
+    username = payload.get("sub")
+    role = payload.get("role", "user")
+    if not username:
+        raise HTTPException(status_code=401, detail="invalid refresh token")
+    return issue_token_pair(username=username, role=role)
 
 
 @app.post("/chat")
-def chat(
-    payload: ChatIn,
-    claims: dict = Depends(verify_token),
-):
-    user_key = claims.get("sub", "anonymous")
-    allowed = check_rate_limit(f"chat:{user_key}", limit=20, window_sec=60)
-    if not allowed:
-        raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
+def chat(body: dict, authorization: str | None = Header(default=None)):
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="missing bearer token")
 
-    try:
-        return handle_user_message(payload.message)
+    token = authorization.split(" ", 1)[1].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="invalid bearer token")
 
-    except RateLimitError:
-        raise HTTPException(status_code=429, detail="OpenAI quota exceeded. Please check billing/limits.")
-    except AuthenticationError:
-        raise HTTPException(status_code=401, detail="OpenAI authentication failed. Check OPENAI_API_KEY.")
-    except APITimeoutError:
-        raise HTTPException(status_code=504, detail="LLM upstream timeout.")
-    except APIConnectionError:
-        raise HTTPException(status_code=503, detail="LLM upstream connection error.")
-    except APIError:
-        raise HTTPException(status_code=502, detail="LLM upstream API error.")
-    except Exception as e:
-        logger.exception("Unhandled /chat error: %s", e)
-        raise HTTPException(status_code=500, detail="Internal server error")
+    msg = body.get("message", "").strip()
+    if not msg:
+        raise HTTPException(status_code=400, detail="message required")
+
+    if settings.rate_limit_enabled:
+        allowed = check_rate_limit(key=f"chat:{token[:12]}", limit=settings.rate_limit_per_minute, window_sec=60)
+        if not allowed:
+            raise HTTPException(status_code=429, detail="rate limit exceeded")
+
+    # placeholder response for ops phase
+    return {"reply": f"echo: {msg}"}

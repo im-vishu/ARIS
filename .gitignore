@@ -2,3 +2,5 @@
 .env
 __pycache__/
 logs/*.log
+.en.example
+.env.prod
