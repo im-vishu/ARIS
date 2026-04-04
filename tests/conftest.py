@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 # test-safe env defaults
 os.environ.setdefault("APP_ENV", "test")
-os.environ.setdefault("JWT_SECRET", "test-secret")
+os.environ.setdefault("JWT_SECRET", "test-secret-32-characters-minimum-value")
 os.environ.setdefault("JWT_ALG", "HS256")
 os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MIN", "30")
 os.environ.setdefault("REFRESH_TOKEN_EXPIRE_MIN", "10080")

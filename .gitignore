@@ -4,3 +4,5 @@ __pycache__/
 logs/*.log
 .en.example
 .env.prod
+.env.staging
+.env.dev

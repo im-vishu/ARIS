@@ -2,28 +2,51 @@ services:
   aris-api:
     build: .
     container_name: aris-api
-    command: uvicorn app.api:app --host 0.0.0.0 --port 8000
+    env_file:
+      - .env.dev
     ports:
       - "8000:8000"
-    env_file:
-      - .env.dev
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      aris-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')\""]
+      interval: 10s
+      timeout: 3s
+      retries: 10
     restart: unless-stopped
 
-  aris-worker:
-    build: .
-    container_name: aris-worker
-    command: python -m app.worker
-    env_file:
-      - .env.dev
-    depends_on:
-      - redis
+  postgres:
+    image: postgres:16-alpine
+    container_name: aris-postgres
+    environment:
+      POSTGRES_USER: aris
+      POSTGRES_PASSWORD: aris
+      POSTGRES_DB: aris
+    ports:
+      - "5432:5432"
+    volumes:
+      - aris_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aris -d aris"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     restart: unless-stopped
 
-  redis:
+  aris-redis:
     image: redis:7-alpine
     container_name: aris-redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     restart: unless-stopped
+
+volumes:
+  aris_postgres_data:

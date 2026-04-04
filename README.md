@@ -102,3 +102,5 @@ Local Executive Assistant.
 - Build Milestone 9: test: verify JWT claim integrity and role-based access control (RBAC)
 
 - Build Milestone 10: docs: finalize Phase 2.8 manifest with User-Isolation and Identity specs
+
+- Phase 4.1 Milestone 1/25: feat(api): initialize /v1 namespace for core API routes

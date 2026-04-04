@@ -2,38 +2,75 @@ name: CI
 
 on:
   push:
-    branches: [ "main", "develop" ]
   pull_request:
-    branches: [ "main", "develop" ]
 
 jobs:
-  test:
+  secret-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-python@v5
+  test:
+    runs-on: ubuntu-latest
+    needs: secret-scan
+
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: aris
+          POSTGRES_PASSWORD: aris
+          POSTGRES_DB: aris
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aris -d aris"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      APP_ENV: test
+      LOG_LEVEL: INFO
+      JWT_SECRET: test-secret-32-characters-minimum-value
+      JWT_ALG: HS256
+      ACCESS_TOKEN_EXPIRE_MIN: 30
+      REFRESH_TOKEN_EXPIRE_MIN: 10080
+      RATE_LIMIT_ENABLED: "false"
+      RATE_LIMIT_PER_MINUTE: 1000
+      OPENAI_API_KEY: sk-test-placeholder
+      REDIS_URL: redis://localhost:6379/0
+      DATABASE_URL: postgresql+psycopg2://aris:aris@localhost:5432/aris
+      CORS_ORIGINS: http://localhost:3000
+      ALLOWED_HOSTS: localhost,127.0.0.1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest httpx ruff
+
+      - name: Run migrations
+        run: alembic upgrade head
 
       - name: Lint
         run: ruff check .
 
-      - name: Run tests
-        env:
-          APP_ENV: test
-          JWT_SECRET: test-secret-at-least-32-characters-long
-          JWT_ALG: HS256
-          ACCESS_TOKEN_EXPIRE_MIN: "30"
-          REFRESH_TOKEN_EXPIRE_MIN: "10080"
-          RATE_LIMIT_ENABLED: "false"
-          RATE_LIMIT_PER_MINUTE: "5"
-          REDIS_URL: redis://localhost:6379/0
-          OPENAI_API_KEY: sk-test-key
-        run: pytest -q
+      - name: Test with coverage gate
+        run: pytest -q --maxfail=1 --disable-warnings --cov=app --cov-report=term-missing --cov-fail-under=85

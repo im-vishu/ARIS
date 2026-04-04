@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 import jwt
 from fastapi import HTTPException
@@ -35,6 +36,7 @@ def issue_token_pair(username: str, role: str = "user") -> dict:
         "sub": username,
         "role": role,
         "type": "access",
+        "jti": str(uuid4()),
         "iat": int(now.timestamp()),
         "exp": int(access_exp.timestamp()),
     }
@@ -42,6 +44,7 @@ def issue_token_pair(username: str, role: str = "user") -> dict:
         "sub": username,
         "role": role,
         "type": "refresh",
+        "jti": str(uuid4()),
         "iat": int(now.timestamp()),
         "exp": int(refresh_exp.timestamp()),
     }
@@ -56,17 +59,13 @@ def issue_token_pair(username: str, role: str = "user") -> dict:
 
 def decode_access_token(token: str) -> dict:
     payload = _decode(token)
-    if payload.get("type") != "access":
-        raise HTTPException(status_code=401, detail="invalid access token")
-    if not payload.get("sub"):
+    if payload.get("type") != "access" or not payload.get("sub") or not payload.get("jti"):
         raise HTTPException(status_code=401, detail="invalid access token")
     return payload
 
 
 def decode_refresh_token(token: str) -> dict:
     payload = _decode(token)
-    if payload.get("type") != "refresh":
-        raise HTTPException(status_code=401, detail="invalid refresh token")
-    if not payload.get("sub"):
+    if payload.get("type") != "refresh" or not payload.get("sub") or not payload.get("jti"):
         raise HTTPException(status_code=401, detail="invalid refresh token")
     return payload

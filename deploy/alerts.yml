@@ -1,0 +1,29 @@
+groups:
+  - name: aris-alerts
+    rules:
+      - alert: ArisHighErrorRate
+        expr: rate(aris_http_errors_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ARIS high error rate"
+          description: "Error rate is above 1 req/sec for 5 minutes."
+
+      - alert: ArisNotReady
+        expr: up{job="aris-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ARIS target down"
+          description: "Prometheus cannot scrape ARIS for 2 minutes."
+
+      - alert: ArisP95LatencyHigh
+        expr: histogram_quantile(0.95, sum(rate(aris_http_request_duration_seconds_bucket[5m])) by (le)) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ARIS p95 latency high"
+          description: "p95 latency above 1.5s for 10 minutes."

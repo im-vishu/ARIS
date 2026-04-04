@@ -1,0 +1,72 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options: [staging, prod]
+      image_tag:
+        description: "Image tag to deploy (example: v3.3.0)"
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'prod' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve deploy params
+        id: params
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "env=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            echo "tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "env=prod" >> $GITHUB_OUTPUT
+            echo "tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Show plan
+        run: |
+          echo "Deploy environment: ${{ steps.params.outputs.env }}"
+          echo "Image tag: ${{ steps.params.outputs.tag }}"
+
+      # Replace this with your actual deployment target steps (SSH/Kubernetes/App Service/etc.)
+      - name: Simulated deploy step
+        run: |
+          echo "Pulling image ghcr.io/${{ github.repository }}:${{ steps.params.outputs.tag }}"
+          echo "Applying deployment manifests..."
+          echo "Deployment done."
+
+      - name: Post-deploy health check
+        env:
+          HEALTHCHECK_URL: ${{ secrets.HEALTHCHECK_URL }}
+        run: |
+          if [ -z "$HEALTHCHECK_URL" ]; then
+            echo "HEALTHCHECK_URL secret is missing"; exit 1
+          fi
+          for i in {1..20}; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTHCHECK_URL/ready")
+            if [ "$code" = "200" ]; then
+              echo "Ready check passed"
+              exit 0
+            fi
+            echo "Attempt $i/20 not ready yet (HTTP $code), retrying..."
+            sleep 5
+          done
+          echo "Deployment health check failed"
+          exit 1
