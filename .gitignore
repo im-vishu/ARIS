@@ -2,7 +2,9 @@
 .env
 __pycache__/
 logs/*.log
-.en.example
+.env.example
 .env.prod
 .env.staging
 .env.dev
+.env.template
+
